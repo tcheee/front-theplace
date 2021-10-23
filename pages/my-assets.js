@@ -2,26 +2,27 @@
 import { ethers } from 'ethers'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import Web3Modal from "web3modal"
 
 import { nftaddress, nftmarketaddress } from '../config'
 
 import NFT from '../artifacts_json/NFT.json'
 import Market from '../artifacts_json/NFTMarket.json'
 
-export default function Home() {
-  const [nfts, setNfts] = useState([])
+export default function MyAssets() {
+  const [myNfts, setMyNfts] = useState([])
   const [loadingState, setLoadingState] = useState('not-loaded')
   useEffect(() => {
     loadNFTs()
   }, [])
 
   async function loadNFTs() {
+    console.log('here')
     /* create a generic provider and query for unsold market items */
     const provider = new ethers.providers.JsonRpcProvider('https://polygon-mumbai.g.alchemy.com/v2/ESPbaNCPGeAcsDO5epRx61f2gPfmsbA0')
     const tokenContract = new ethers.Contract(nftaddress, NFT.abi, provider)
     const marketContract = new ethers.Contract(nftmarketaddress, Market.abi, provider)
-    const data = await marketContract.fetchMarketItems()
+    const data = await marketContract.fetchMyNFTs()
+    console.log(data)
 
     /*
     *  map over items returned from smart contract and format 
@@ -31,6 +32,7 @@ export default function Home() {
       const tokenUri = await tokenContract.tokenURI(i.tokenId)
       const meta = await axios.get(tokenUri)
       let price = ethers.utils.formatUnits(i.price.toString(), 'ether')
+      console.log(i);
       let item = {
         price,
         tokenId: i.tokenId.toNumber(),
@@ -42,37 +44,18 @@ export default function Home() {
       }
       return item
     }))
-    setNfts(items)
+    setMyNfts(items)
     setLoadingState('loaded') 
-  }
-
-  async function buyNft(nft) {
-    /* needs the user to sign the transaction, so will use Web3Provider and sign it */
-    console.log(nft)
-    const web3modal = new Web3Modal();
-    const connection = await web3modal.connect();
-    const provider = new ethers.providers.Web3Provider(connection);
-    const signer = provider.getSigner()
-    const marketContract = new ethers.Contract(nftmarketaddress, Market.abi, signer)
-
-    /* user will be prompted to pay the asking proces to complete the transaction */
-    const price = ethers.utils.parseUnits(nft.price.toString(), 'ether') 
-    console.log(price)
-    const transaction = await marketContract.createMarketSale(nftaddress, nft.tokenId, {
-      value: price
-    })
-    await transaction.wait()
-    loadNFTs()
   }
 
   return (
     <div>
-    {loadingState === 'loaded' && !nfts.length ? <h1 className="px-20 py-10 text-3xl">No items in marketplace</h1> : 
+    {loadingState === 'loaded' && !myNfts.length ? <h1 className="px-6 py-10 text-3xl">No NFT for the time being!</h1> : 
       <div className="flex justify-center">
         <div className="px-4" style={{ maxWidth: '1600px' }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
             {
-              nfts.map((nft, i) => (
+              myNfts.map((nft, i) => (
                 <div key={i} className="border shadow rounded-xl overflow-hidden">
                   <img src={nft.image} />
                   <div className="p-4">
@@ -82,8 +65,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="p-4 bg-black">
-                    <p className="text-2xl mb-4 font-bold text-white">{nft.price} ETH</p>
-                    <button className="w-full bg-pink-500 text-white font-bold py-2 px-12 rounded" onClick={() => buyNft(nft)}>Buy</button>
+                    <p className="text-2xl mb-4 font-bold text-white">Price - {nft.price}</p>
                   </div>
                 </div>
               ))
